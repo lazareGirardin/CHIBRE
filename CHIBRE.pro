@@ -13,7 +13,7 @@
 
 QT       += core gui charts
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport
 
 INCLUDEPATH +="framelesswindow"
 
@@ -25,14 +25,16 @@ SOURCES     += main.cpp\
                framelesswindow/framelesswindow.cpp \
                framelesswindow/windowdragger.cpp \
                DarkStyle.cpp \
-    chibrecalculator.cpp
+               chibrecalculator.cpp \
+    qcustomplot.cpp
 
 
 HEADERS     += mainwindow.h \
                framelesswindow/framelesswindow.h \
                framelesswindow/windowdragger.h \
                DarkStyle.h \
-    chibrecalculator.h
+               chibrecalculator.h \
+    qcustomplot.h
 
 
 FORMS       += mainwindow.ui \

@@ -69,7 +69,7 @@ void ChibreCalculator::setScores(int score1, int score2, QVector<QVector<int>> a
     a_team1.append(annonces[TEAM_1][0]);
     a_team2.append(annonces[TEAM_2][0]);
 
-    // add all annonces from the team winning them
+    // add all annonces from the team winning
     if(winning_team != -1)
     {
         for (int i = 1; i < 7; i++)
@@ -77,9 +77,7 @@ void ChibreCalculator::setScores(int score1, int score2, QVector<QVector<int>> a
             a_team1.append(annonces[TEAM_1][i]*a_points[i]);
             a_team2.append(annonces[TEAM_2][i]*a_points[i]);
            if(annonces[winning_team][i])
-           {
-               winning_team == TEAM_1 ? scoreTeam_1 += a_points[i] : scoreTeam_2 += a_points[i];
-           }
+               winning_team == TEAM_1 ? scoreTeam_1 += a_team1[i] : scoreTeam_2 += a_team2[i];
         }
     }
     // count the Stock if any
@@ -89,14 +87,16 @@ void ChibreCalculator::setScores(int score1, int score2, QVector<QVector<int>> a
     a_team1.append(annonces[TEAM_1].last() * a_points.last());
     a_team2.append(annonces[TEAM_2].last() * a_points.last());
 
-    qDebug() << "annonces team1 : " << a_team1;
-    qDebug() << "annonces team2 : " << a_team2;
+    //qDebug() << "annonces team1 : " << a_team1;
+    //qDebug() << "annonces team2 : " << a_team2;
 
     annonces_history_team1.append(a_team1);
     annonces_history_team2.append(a_team2);
 
     scoreTeam_1 += score1;
     scoreTeam_2 += score2;
+
+    total_score_history.append({scoreTeam_1, scoreTeam_2});
 }
 
 QVector<QVector<int>> ChibreCalculator::getScoreRepartition()
@@ -157,4 +157,93 @@ QVector<QVector<int>> ChibreCalculator::getScoreRepartition()
     result.append(temp);
 
     return result;
+}
+
+QVector<QVector<double>> ChibreCalculator::getResultsStats()
+{
+    /* return vector of the form:
+     *
+     * [points_team1_0; points_team2_0; tour_0]
+     * [points_team1_1; points_team2_1; tour_1]
+     * ...
+     *
+     * */
+    QVector<QVector<double>> results;
+    QVector<double> tour;
+    QVector<double> s_team_1;
+    QVector<double> s_team_2;
+    QVector<double> a_team1_c;
+    QVector<double> a_team2_c;
+    QVector<double> a_team1_nc;
+    QVector<double> a_team2_nc;
+    QVector<double> st_team1_rescaled;
+    QVector<double> st_team2_rescaled;
+    int sum_annonces_counted = 0;
+    int sum_annonces_notcounted = 0;
+    int i = 0;
+
+    for (const auto &elem : score_history)
+    {
+        tour << double(i);
+        s_team_1 << double(elem[TEAM_1]);
+        s_team_2 << double(elem[TEAM_2]);
+        // ---------------------- TEAM 1
+        if (annonces_history_team1[i][0] == 1)
+        {
+            // count the sum of the vector, remove 1 because of the first element beeing a bool indicating if the annonced counted
+            sum_annonces_counted = std::accumulate(annonces_history_team1[i].begin(),
+                                                   annonces_history_team1[i].end(),
+                                                   sum_annonces_counted) -1;
+        }
+        else
+        {
+            // if there was a Stock
+            sum_annonces_counted += annonces_history_team1[i].last();
+            sum_annonces_notcounted = std::accumulate(annonces_history_team1[i].begin(),
+                                                      annonces_history_team1[i].end(),
+                                                      sum_annonces_notcounted) - annonces_history_team1[i].last();
+        }
+        a_team1_c << sum_annonces_counted;
+        a_team1_nc << sum_annonces_notcounted;
+        sum_annonces_counted = 0;
+        sum_annonces_notcounted = 0;
+
+        // ------------------------ TEAM 2
+        if (annonces_history_team2[i][0] == 1)
+        {
+            // count the sum of the vector, remove 1 because of the first element beeing a bool indicating if the annonced counted
+            sum_annonces_counted = std::accumulate(annonces_history_team2[i].begin(),
+                                                   annonces_history_team2[i].end(),
+                                                   sum_annonces_counted) -1;
+        }
+        else
+        {
+            // if there was a Stock
+            sum_annonces_counted += annonces_history_team2[i].last();
+            sum_annonces_notcounted = std::accumulate(annonces_history_team2[i].begin(),
+                                                      annonces_history_team2[i].end(),
+                                                      sum_annonces_notcounted) - annonces_history_team2[i].last();
+        }
+        a_team2_c << sum_annonces_counted;
+        a_team2_nc << sum_annonces_notcounted;
+        sum_annonces_counted = 0;
+        sum_annonces_notcounted = 0;
+
+        st_team1_rescaled << (total_score_history[i][TEAM_1]/3.5);
+        st_team2_rescaled << (total_score_history[i][TEAM_2]/3.5);
+
+        i++;
+    }
+
+    results.append(s_team_1);
+    results.append(s_team_2);
+    results.append(tour);
+    results.append(a_team1_c);
+    results.append(a_team2_c);
+    results.append(a_team1_nc);
+    results.append(a_team2_nc);
+    results.append(st_team1_rescaled);
+    results.append(st_team2_rescaled);
+
+    return results;
 }

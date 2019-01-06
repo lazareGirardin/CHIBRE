@@ -98,9 +98,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent/*, Qt::FramelessWin
     QVBoxLayout *lay2 = new QVBoxLayout(ui->frame_pie2);
     lay2->addWidget(chartView2);
 
+    lay->addWidget(ui->annonces_points1);
+    lay2->addWidget(ui->annonces_points2);
 
     tour = 0;
     ui->setScore_button->setEnabled(false);
+
+    chart->setAcceptHoverEvents(true);
+    chart2->setAcceptHoverEvents(true);
+
+    connect(slice, &QPieSlice::hovered, this, &MainWindow::on_hover_slice);
+    connect(slice2, &QPieSlice::hovered, this, &MainWindow::on_hover_slice);
+
+
 }
 
 MainWindow::~MainWindow() {
@@ -154,7 +164,7 @@ void MainWindow::on_points_team2_textChanged(const QString &arg1)
 void MainWindow::on_setScore_button_clicked()
 {
     //retrieve the annonces checkboxes values
-    const auto l_checkboxes = ui->annoncesgroup1->findChildren<QCheckBox *>();
+    const auto l_checkboxes = ui->a_value1->findChildren<QCheckBox *>();
     int i = 0;
     for (auto&& singlebox : l_checkboxes)
     {
@@ -164,7 +174,7 @@ void MainWindow::on_setScore_button_clicked()
         //reset checkboxes
         singlebox->setChecked(false);
     }
-    const auto l_checkboxes2 = ui->annoncegroup2->findChildren<QCheckBox *>();
+    const auto l_checkboxes2 = ui->a_value2->findChildren<QCheckBox *>();
     i = 0;
     for (auto&& singlebox : l_checkboxes2)
     {
@@ -173,8 +183,32 @@ void MainWindow::on_setScore_button_clicked()
         //reset checkboxes
         singlebox->setChecked(false);
     }
+    // -------------------- COEFS -----------------------------------------
+    const auto l_spinbox = ui->a_coef1->findChildren<QSpinBox *>();
+    i = 0;
+    for (auto&& spinbox : l_spinbox)
+    {
+        annonces_coef[i] = spinbox->value();
+        i++;
+        spinbox->setValue(1);
+    }
+    annonces_coef[4] = 1;
+    annonces_coef[5] = 1;
+    annonces_coef[6] = 1;
 
-    QVector<QVector<int>> results = check_annonces(annonces_team1, annonces_team2);
+    const auto l_spinbox2 = ui->a_coef2->findChildren<QSpinBox *>();
+    i = 0;
+    for (auto&& spinbox : l_spinbox2)
+    {
+        annonces_coef2[i] = spinbox->value();
+        i++;
+        spinbox->setValue(1);
+    }
+    annonces_coef2[4] = 1;
+    annonces_coef2[5] = 1;
+    annonces_coef2[6] = 1;
+
+    QVector<QVector<int>> results = check_annonces(annonces_team1, annonces_team2, annonces_coef, annonces_coef2);
     // add current score to the total ADD CONDITION TO ENSURE GOOD POINTS
     game->setScores(ui->points_team1->text().toInt(), ui->points_team2->text().toInt(),
                     results);
@@ -207,7 +241,7 @@ void MainWindow::on_setScore_button_clicked()
 }
 
 //Pre-appened a TRUE before annonces if they counted
-QVector<QVector<int>> MainWindow::check_annonces(int* a_team1, int* a_team2)
+QVector<QVector<int>> MainWindow::check_annonces(int* a_team1, int* a_team2, int* a_coef1, int* a_coef2)
 {
     QVector<QVector<int>> results;
     QVector<int> t_1;
@@ -269,11 +303,11 @@ QVector<QVector<int>> MainWindow::check_annonces(int* a_team1, int* a_team2)
 
     for(int i=0; i<7; i++)
     {
-        t_1 << a_team1[i];
-        t_2 << a_team2[i];
+        t_1 << a_team1[i]*a_coef1[i];
+        t_2 << a_team2[i]*a_coef2[i];
     }
-    //qDebug() << t_1;
-    //qDebug() << t_2;
+    //qDebug() << "t1 : " << t_1;
+    //qDebug() << "t2 : " << t_2;
 
     results.append(t_1);
     results.append(t_2);
@@ -298,6 +332,79 @@ void MainWindow::game_completed()
 {
     //victory page
     ui->stackedWidget->setCurrentIndex(1);
+
+    QVector<QVector<double>> score_history = game->getResultsStats();
+
+    create_graph_team1(score_history);
+    create_graph_team2(score_history);
+    double mean_team1_1=0;
+    double mean_team1_2=0;
+    double mean_team2_1=0;
+    double mean_team2_2=0;
+    int i=0;
+    int count_1 = 0;
+    int count_2 = 0;
+    for(const auto &elem: score_history[TOUR])
+    {
+        if(i%2==0)
+        {
+            mean_team1_1+=score_history[TEAM_1][i];
+            mean_team2_1+=score_history[TEAM_2][i];
+            count_1++;
+        }
+        else
+        {
+           mean_team1_2+=score_history[TEAM_1][i];
+           mean_team2_2+=score_history[TEAM_2][i];
+           count_2++;
+        }
+        i++;
+    }
+    mean_team1_1 = mean_team1_1/count_1;
+    mean_team1_2 = mean_team1_2/count_2;
+    mean_team2_1 = mean_team2_1/count_1;
+    mean_team2_2 = mean_team2_2/count_2;
+
+    QString m_1;
+    QString m_2;
+
+    if (mean_team1_1 > mean_team1_2)
+    {
+        m_1 = "Mean Atout: " + QString::number(mean_team1_1) + ", (" + QString::number(count_1) + " fois)";
+        m_2 = "Mean not Atout: " + QString::number(mean_team1_2) + ", (" + QString::number(count_2) + " fois)";
+
+    }
+    else
+    {
+        m_1 = "Mean Atout: " + QString::number(mean_team1_2) + ", (" + QString::number(count_2) + " fois)";
+        m_2 = "Mean not Atout: " + QString::number(mean_team1_1) + ", (" + QString::number(count_1) + " fois)";
+    }
+    ui->label_mean_atout->setText(m_1);
+    ui->label_mean_notatout->setText(m_2);
+
+    if (mean_team2_1 > mean_team2_2)
+    {
+        m_1 = "Mean Atout: " + QString::number(mean_team2_1) + ", (" + QString::number(count_1) + " fois)";
+        m_2 = "Mean not Atout: " + QString::number(mean_team2_2) + ", (" + QString::number(count_2) + " fois)";
+
+    }
+    else
+    {
+        m_1 = "Mean Atout: " + QString::number(mean_team2_2) + ", (" + QString::number(count_2) + " fois)";
+        m_2 = "Mean not Atout: " + QString::number(mean_team2_1) + ", (" + QString::number(count_1) + " fois)";
+    }
+
+    ui->label_atout_2->setText(m_1);
+    ui->label_notatout_2->setText(m_2);
+
+    QVector<QVector<int>> repartition = game->getScoreRepartition();
+    int a_1 = repartition[TEAM_1][0];
+    int a_2 = repartition[TEAM_2][0];
+    QString v = "Annonces: " + QString::number(a_1);
+    QString v_2 = "Annonces: " + QString::number(a_2);
+    ui->label_annonces->setText(v);
+    ui->label_annonces_2->setText(v_2);
+
 }
 
 void MainWindow::on_modify_button_clicked()
@@ -349,5 +456,180 @@ void MainWindow::on_modify_button_clicked()
 
 void MainWindow::on_newGame_button_clicked()
 {
+    game->getResultsStats();
+}
 
+void MainWindow::on_hover_slice(bool state)
+{
+    if(state)
+    {
+        QVector<QVector<int>> repartition = game->getScoreRepartition();
+        int a_1 = repartition[TEAM_1][0];
+        int a_2 = repartition[TEAM_2][0];
+        QString v = "Annonces: " + QString::number(a_1);
+        QString v_2 = "Annonces: " + QString::number(a_2);
+        ui->annonces_points1->setText(v);
+        ui->annonces_points2->setText(v_2);
+    }
+    else
+    {
+        ui->annonces_points1->setText("");
+        ui->annonces_points2->setText("");
+    }
+}
+
+void MainWindow::create_graph_team1(QVector<QVector<double>> score_history)
+{
+    //QVector<double> zeros(score_history.size(), 0);
+    QCPGraph *graph_score_1 = ui->victory_graph->addGraph();
+    graph_score_1->setData(score_history[TOUR], score_history[TEAM_1]);
+    graph_score_1->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle, QPen(Qt::black, 1.5), QBrush(Qt::white), 12));
+    graph_score_1->setPen(QPen(QColor(120, 120, 120), 3));
+
+    QCPGraph *graph_total_score_1 = ui->victory_graph->addGraph();
+    //graph_total_score_1->setLineStyle(QCPGraph::lsLine);
+    graph_total_score_1->setData(score_history[TOUR], score_history[TS_TEAM1]);
+    graph_total_score_1->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle, QPen(Qt::black, 1.5), QBrush(Qt::white), 9));
+    graph_total_score_1->setPen(QPen(QColor(120, 120, 120), 1));
+    graph_total_score_1->setBrush(QBrush(QColor(200, 200, 200, 20)));
+
+    // annonces comptée
+    QCPBars *bars1 = new QCPBars(ui->victory_graph->xAxis, ui->victory_graph->yAxis);
+    //bars1->setWidth(9/(double)score_history[TOUR].size());
+    bars1->setData(score_history[TOUR], score_history[A_TEAM1_C]);
+    bars1->setPen(Qt::NoPen);
+    bars1->setBrush(QColor(10, 140, 70, 160));
+
+    // annonces non-comptée
+    QCPBars *bars2 = new QCPBars(ui->victory_graph->xAxis, ui->victory_graph->yAxis);
+    //bars2->setWidth(9/(double)score_history[TOUR].size());
+    bars2->setData(score_history[TOUR], score_history[A_TEAM1_NC]);
+    bars2->setPen(Qt::NoPen);
+    bars2->setBrush(QColor(10, 100, 50, 70));
+    bars2->moveAbove(bars1);
+
+    // move bars above graphs and grid below bars:
+    ui->victory_graph->addLayer("abovemain", ui->victory_graph->layer("main"), QCustomPlot::limAbove);
+    ui->victory_graph->addLayer("belowmain", ui->victory_graph->layer("main"), QCustomPlot::limBelow);
+    graph_score_1->setLayer("abovemain");
+    ui->victory_graph->xAxis->grid()->setLayer("belowmain");
+    ui->victory_graph->yAxis->grid()->setLayer("belowmain");
+
+    ui->victory_graph->xAxis->setLabel("Tour");
+    ui->victory_graph->yAxis->setLabel("Points");
+
+    // set some pens, brushes and backgrounds:
+    ui->victory_graph->xAxis->setBasePen(QPen(Qt::white, 1));
+    ui->victory_graph->yAxis->setBasePen(QPen(Qt::white, 1));
+    ui->victory_graph->xAxis->setTickPen(QPen(Qt::white, 1));
+    ui->victory_graph->yAxis->setTickPen(QPen(Qt::white, 1));
+    ui->victory_graph->xAxis->setSubTickPen(QPen(Qt::white, 1));
+    ui->victory_graph->yAxis->setSubTickPen(QPen(Qt::white, 1));
+    ui->victory_graph->xAxis->setTickLabelColor(Qt::white);
+    ui->victory_graph->yAxis->setTickLabelColor(Qt::white);
+    ui->victory_graph->xAxis->grid()->setPen(QPen(QColor(140, 140, 140), 1, Qt::DotLine));
+    ui->victory_graph->yAxis->grid()->setPen(QPen(QColor(140, 140, 140), 1, Qt::DotLine));
+    ui->victory_graph->xAxis->grid()->setSubGridPen(QPen(QColor(80, 80, 80), 1, Qt::DotLine));
+    ui->victory_graph->yAxis->grid()->setSubGridPen(QPen(QColor(80, 80, 80), 1, Qt::DotLine));
+    ui->victory_graph->xAxis->grid()->setSubGridVisible(true);
+    ui->victory_graph->yAxis->grid()->setSubGridVisible(true);
+    ui->victory_graph->xAxis->grid()->setZeroLinePen(Qt::NoPen);
+    ui->victory_graph->yAxis->grid()->setZeroLinePen(Qt::NoPen);
+    ui->victory_graph->xAxis->setUpperEnding(QCPLineEnding::esSpikeArrow);
+    ui->victory_graph->yAxis->setUpperEnding(QCPLineEnding::esSpikeArrow);
+    QLinearGradient plotGradient;
+    plotGradient.setStart(0, 0);
+    plotGradient.setFinalStop(0, 350);
+    plotGradient.setColorAt(0, QColor(80, 80, 80));
+    plotGradient.setColorAt(1, QColor(50, 50, 50));
+    ui->victory_graph->setBackground(plotGradient);
+    QLinearGradient axisRectGradient;
+    axisRectGradient.setStart(0, 0);
+    axisRectGradient.setFinalStop(0, 350);
+    axisRectGradient.setColorAt(0, QColor(80, 80, 80));
+    axisRectGradient.setColorAt(1, QColor(30, 30, 30));
+    ui->victory_graph->axisRect()->setBackground(axisRectGradient);
+
+    ui->victory_graph->rescaleAxes();
+    ui->victory_graph->replot();
+}
+
+void MainWindow::create_graph_team2(QVector<QVector<double>> score_history)
+{
+    QCPGraph *graph_score_1 = ui->victory_graph2->addGraph();
+    graph_score_1->setData(score_history[TOUR], score_history[TEAM_2]);
+    graph_score_1->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle, QPen(Qt::black, 1.5), QBrush(Qt::white), 12));
+    graph_score_1->setPen(QPen(QColor(120, 120, 120), 3));
+
+    QCPGraph *graph_total_score_1 = ui->victory_graph2->addGraph();
+    graph_total_score_1->setData(score_history[TOUR], score_history[TS_TEAM2]);
+    graph_total_score_1->setScatterStyle(QCPScatterStyle(QCPScatterStyle::ssCircle, QPen(Qt::black, 1.5), QBrush(Qt::white), 9));
+    graph_total_score_1->setPen(QPen(QColor(120, 120, 120), 1));
+    graph_total_score_1->setBrush(QBrush(QColor(200, 200, 200, 20)));
+
+    /*QCPGraph *graph2 = ui->victory_graph2->addGraph();
+    graph2->setData(score_history[TOUR], score_history[TS_TEAM2]);
+    graph2->setPen(Qt::NoPen);
+    graph2->setBrush(QColor(200, 200, 200, 20));
+    graph2->setChannelFillGraph(graph_score_1);*/
+
+    // annonces comptée
+    QCPBars *bars1 = new QCPBars(ui->victory_graph2->xAxis, ui->victory_graph2->yAxis);
+    //bars1->setWidth(9/(double)score_history[TOUR].size());
+    bars1->setData(score_history[TOUR], score_history[A_TEAM2_C]);
+    bars1->setPen(Qt::NoPen);
+    bars1->setBrush(QColor(10, 140, 70, 160));
+
+    // annonces non-comptée
+    QCPBars *bars2 = new QCPBars(ui->victory_graph2->xAxis, ui->victory_graph2->yAxis);
+    //bars2->setWidth(9/(double)score_history[TOUR].size());
+    bars2->setData(score_history[TOUR], score_history[A_TEAM2_NC]);
+    bars2->setPen(Qt::NoPen);
+    bars2->setBrush(QColor(10, 100, 50, 70));
+    bars2->moveAbove(bars1);
+
+    // move bars above graphs and grid below bars:
+    ui->victory_graph2->addLayer("abovemain", ui->victory_graph2->layer("main"), QCustomPlot::limAbove);
+    ui->victory_graph2->addLayer("belowmain", ui->victory_graph2->layer("main"), QCustomPlot::limBelow);
+    graph_score_1->setLayer("abovemain");
+    ui->victory_graph2->xAxis->grid()->setLayer("belowmain");
+    ui->victory_graph2->yAxis->grid()->setLayer("belowmain");
+
+    ui->victory_graph2->xAxis->setLabel("Tour");
+    ui->victory_graph2->yAxis->setLabel("Points");
+
+    // set some pens, brushes and backgrounds:
+    ui->victory_graph2->xAxis->setBasePen(QPen(Qt::white, 1));
+    ui->victory_graph2->yAxis->setBasePen(QPen(Qt::white, 1));
+    ui->victory_graph2->xAxis->setTickPen(QPen(Qt::white, 1));
+    ui->victory_graph2->yAxis->setTickPen(QPen(Qt::white, 1));
+    ui->victory_graph2->xAxis->setSubTickPen(QPen(Qt::white, 1));
+    ui->victory_graph2->yAxis->setSubTickPen(QPen(Qt::white, 1));
+    ui->victory_graph2->xAxis->setTickLabelColor(Qt::white);
+    ui->victory_graph2->yAxis->setTickLabelColor(Qt::white);
+    ui->victory_graph2->xAxis->grid()->setPen(QPen(QColor(140, 140, 140), 1, Qt::DotLine));
+    ui->victory_graph2->yAxis->grid()->setPen(QPen(QColor(140, 140, 140), 1, Qt::DotLine));
+    ui->victory_graph2->xAxis->grid()->setSubGridPen(QPen(QColor(80, 80, 80), 1, Qt::DotLine));
+    ui->victory_graph2->yAxis->grid()->setSubGridPen(QPen(QColor(80, 80, 80), 1, Qt::DotLine));
+    ui->victory_graph2->xAxis->grid()->setSubGridVisible(true);
+    ui->victory_graph2->yAxis->grid()->setSubGridVisible(true);
+    ui->victory_graph2->xAxis->grid()->setZeroLinePen(Qt::NoPen);
+    ui->victory_graph2->yAxis->grid()->setZeroLinePen(Qt::NoPen);
+    ui->victory_graph2->xAxis->setUpperEnding(QCPLineEnding::esSpikeArrow);
+    ui->victory_graph2->yAxis->setUpperEnding(QCPLineEnding::esSpikeArrow);
+    QLinearGradient plotGradient;
+    plotGradient.setStart(0, 0);
+    plotGradient.setFinalStop(0, 350);
+    plotGradient.setColorAt(0, QColor(80, 80, 80));
+    plotGradient.setColorAt(1, QColor(50, 50, 50));
+    ui->victory_graph2->setBackground(plotGradient);
+    QLinearGradient axisRectGradient;
+    axisRectGradient.setStart(0, 0);
+    axisRectGradient.setFinalStop(0, 350);
+    axisRectGradient.setColorAt(0, QColor(80, 80, 80));
+    axisRectGradient.setColorAt(1, QColor(30, 30, 30));
+    ui->victory_graph2->axisRect()->setBackground(axisRectGradient);
+
+    ui->victory_graph2->rescaleAxes();
+    ui->victory_graph2->replot();
 }

@@ -7,6 +7,7 @@
 
 #define TEAM_1 0
 #define TEAM_2 1
+#define TOUR   2
 
 #define NOT_COUNTED 0
 #define COUNTED 1
@@ -30,11 +31,13 @@ public:
     int getScores(bool team);
     void setScores(int score1, int score2, QVector<QVector<int>> annonces);
     QVector<QVector<int>> getScoreRepartition();
+    QVector<QVector<double>> getResultsStats();
 
 private:
     int scoreTeam_1;
     int scoreTeam_2;
     QVector<std::array<int, 2>> score_history;
+    QVector<std::array<int, 2>> total_score_history;
     QVector<QVector<int>> annonces_history_team1;
     QVector<QVector<int>> annonces_history_team2;
 
